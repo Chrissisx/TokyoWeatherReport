@@ -1,0 +1,471 @@
+#+options: ':nil *:t -:t ::t <:t H:3 \n:nil ^:t arch:headline
+#+options: author:t broken-links:nil c:nil creator:nil
+#+options: d:(not "LOGBOOK") date:t e:t email:nil expand-links:t f:t
+#+options: inline:t num:t p:nil pri:nil prop:nil stat:t tags:t
+#+options: tasks:t tex:t timestamp:t title:t toc:t todo:t |:t
+#+title: Proyecto ICCD332 Arquitectura de Computadores
+#+date: 2024-08-07
+#+author: Joseph Jimenez & Christopher Criollo
+#+email: joseph.jimenez@epn.edu.ec, christopher.criollo@epn.edu.ec
+#+language: es
+#+select_tags: export
+#+exclude_tags: noexport
+#+creator: Emacs 27.1 (Org mode 9.7.5)
+#+cite_export:
+* City Weather APP
+Este es el proyecto de fin de semestre en donde se pretende demostrar
+las destrezas obtenidas durante el transcurso de la asignatura de
+**Arquitectura de Computadores**.
+
+1. Conocimientos de sistema operativo Linux
+2. Conocimientos de Emacs/Jupyter
+3. Configuración de Entorno para Data Science con Mamba/Anaconda
+4. Literate Programming
+ 
+** Estructura del proyecto
+Se recomienda que el proyecto se cree en el /home/ del sistema
+operativo i.e. /home/<user>/. Allí se creará la carpeta /CityWeather/
+#+begin_src shell :results output :exports both
+cd 
+cd TokyoWeatherReport
+pwd
+#+end_src
+
+#+RESULTS:
+: /home/josefu/TokyoWeatherReport
+
+El proyecto ha de tener los siguientes archivos y
+subdirectorios. Adaptar los nombres de los archivos según las ciudades
+específicas del grupo.
+
+#+begin_src shell :results output :exports results
+cd ..
+cd ..
+tree
+#+end_src
+
+#+RESULTS:
+#+begin_example
+.
+├── CityTemperatureAnalysis.ipynb
+├── clima-quito-hoy.csv
+├── get-weather.sh
+├── main.py
+├── output.log
+└── weather-site
+    ├── build-site.el
+    ├── build.sh
+    ├── content
+    │   ├── images
+    │   │   ├── plot.png
+    │   │   └── temperature.png
+    │   ├── index.org
+    │   └── index.org_archive
+    └── public
+        ├── images
+        │   ├── plot.png
+        │   └── temperature.png
+        ├── index.html
+        
+
+5 directories, 18 files
+#+end_example
+
+Puede usar Emacs para la creación de la estructura de su proyecto
+usando comandos desde el bloque de shell. Recuerde ejecutar el bloque
+con ~C-c C-c~. Para insertar un bloque nuevo utilice ~C-c C-,~ o ~M-x
+org-insert-structure-template~. Seleccione la opción /s/ para src y
+adapte el bloque según su código tenga un comandos de shell, código de
+Python o de Java. En este documento ~.org~ dispone de varios ejemplos
+funcionales para escribir y presentar el código.
+
+#+begin_src shell :results output :exports both
+echo 'Aquí va sus comandos'
+#+end_src
+
+#+RESULTS:
+: Aquí va sus comandos
+
+** Formulación del Problema
+Se desea realizar un registro climatológico de una ciudad
+$\mathcal{C}$. Para esto, escriba un script de Python/Java que permita
+obtener datos climatológicos desde el API de [[https://openweathermap.org/current#one][openweathermap]]. El API
+hace uso de los valores de latitud $x$ y longitud $y$ de la ciudad
+$\mathcal{C}$ para devolver los valores actuales a un tiempo $t$.
+
+Los resultados obtenidos de la consulta al API se escriben en un
+archivo /clima-<ciudad>-hoy.csv/. Cada ejecución del script debe
+almacenar nuevos datos en el archivo. Utilice *crontab* y sus
+conocimientos de Linux y Programación para obtener datos del API de
+/openweathermap/ con una periodicidad de 15 minutos mediante la
+ejecución de un archivo ejecutable denominado
+/get-weather.sh/. Obtenga al menos 50 datos. Verifique los
+resultados. Todas las operaciones se realizan en Linux o en el
+WSL. Las etapas del problema se subdividen en:
+
+    1. Conformar los grupos de 2 estudiantes y definir la ciudad
+       objeto de estudio.
+    2.  Crear su API gratuito en [[https://openweathermap.org/current#one][openweathermap]]
+    3. Escribir un script en Python/Java que realice la consulta al
+       API y escriba los resultados en /clima-<ciudad>-hoy.csv/. El
+       archivo ha de contener toda la información que se obtiene del
+       API en columnas. Se debe observar que los datos sobre lluvia
+       (rain) y nieve (snow) se dan a veces si existe el fenómeno.
+    3. Desarrollar un ejecutable /get-weather.sh/ para ejecutar el
+       programa Python/Java.[fn:1]
+       #+begin_src shell :exports both
+         
+       #+end_src
+    4. Configurar Crontab para la adquisición de datos. Escriba el
+       comando configurado. Respalde la ejecución de crontab en un
+       archivo output.log
+    5. Realizar la presentación del Trabajo utilizando la generación
+       del sitio web por medio de Emacs. Para esto es necesario crear
+       la carpeta **weather-site** dentro del proyecto. Puede ajustar el
+       /look and feel/ según sus preferencias. El servidor a usar es
+       el **simple-httpd** integrado en Emacs que debe ser instalado:
+       - Usando comandos Emacs: ~M-x package-install~ presionamos
+         enter (i.e. RET) y escribimos el nombre del paquete:
+         simple-httpd
+       - Configurando el archivo init.el
+
+       #+begin_src elisp
+         (use-package simple-httpd
+            :ensure t)
+       #+end_src
+
+       Instrucciones de sobre la creación del sitio web se tiene en el
+       vídeo de instrucciones y en el archivo [[https://github.com/LeninGF/EPN-Lectures/blob/main/iccd332ArqComp-2024-A/Tutoriales/Org-Website/Org-Website.org][Org-Website.org]] en el
+       GitHub del curso
+
+    6. Su código debe estar respaldado en GitHub/BitBucket, la
+       dirección será remitida en la contestación de la tarea
+** Descripción del código
+
+Lectura del API
+#+begin_src python :session :results output exports both
+import requests
+import csv
+import os
+from datetime import datetime
+
+# Coordenadas de Tokio
+LATITUD = 35.6895
+LONGITUD = 139.6917
+
+API_KEY = 'e9372547987c2a71f1b5d221520c0030'
+
+# URL de la API
+URL = f'http://api.openweathermap.org/data/2.5/weather?lat={LATITUD}&lon={LONGITUD}&appid={API_KEY}&units=metric'
+#+end_src
+
+#+RESULTS:
+: 8
+
+Este segmento del código se encarga de configurar las variables clave para la consulta a la API, las coordenadas de latitud y longitud corresponden a la ubicación de Tokio y la API KEY es un identificador único que autentica las solicitudes a la API.
+
+
+Guardar el archivo csv
+#+begin_src python :session :results output exports both
+def escribir_csv(datos):
+    archivo_existe = os.path.isfile(ARCHIVO_CSV)
+    
+    with open(ARCHIVO_CSV, mode='a', newline='') as archivo:
+        escritor = csv.DictWriter(archivo, fieldnames=datos.keys())
+        
+        if not archivo_existe:
+            escritor.writeheader()
+        
+        escritor.writerow(datos)
+#+end_src
+
+#+RESULTS:
+: -10
+
+La función escribir csv toma el diccionario generado y lo guarda en un archivo CSV y va añadiendo una nueva fila con los datos más recientes según se va llenando.
+
+Main
+#+begin_src python :session :results output exports both
+def main():
+    datos_climaticos = obtener_datos_climaticos()
+    escribir_csv(datos_climaticos)
+
+if __name__ == '__main__':
+    main()
+#+end_src
+
+La función main coordina el proceso, llama a la función obtener datos climaticos para obtener los datos actuales, y luego llama a escribir csv para almacenar estos datos en el archivo CSV.
+
+** Script ejecutable sh
+Se coloca el contenido del script ejecutable. Recuerde que se debe
+utilizar el entorno de **anaconda/mamba** denominado **iccd332** para
+la ejecución de Python; independientemente de que tenga una
+instalación nativa de Python
+
+En el caso de los shell script se puede usar `which sh` para conocer
+la ubicación del ejecutable
+#+begin_src shell :results output :exports both
+which sh
+#+end_src
+
+#+RESULTS:
+: /usr/bin/sh
+
+De igual manera se requiere localizar el entorno de mamba *iccd332*
+que será utilizado
+
+#+begin_src shell :results output :exports both
+which mamba
+#+end_src
+
+#+RESULTS:
+: /home/josefu/miniforge3/bin/mamba
+
+Con esto el archivo ejecutable a de tener (adapte el código según las
+condiciones de su máquina):
+
+#+begin_src shell :results output :exports both
+#!/usr/bin/sh
+source /home/josefu/miniforge3/etc/profile.d/conda.sh
+eval "$(conda shell.bash hook)"
+conda activate iccd332
+python main.py
+#+end_src
+
+Finalmente convierta en ejecutable como se explicó en clases y laboratorio
+#+begin_src shell :results output :exports both
+#!/usr/bin/sh
+nano get-weather.sh
+#Permisos de Ejecutable
+chmod +x get-weather.sh
+#+end_src
+
+** Configuración de Crontab
+Se indica la configuración realizada en crontab para la adquisición de datos
+
+#+begin_src shell
+*/10 * * * * cd TokyoWeatherReport && ./get-weather.sh >> output.log 2>&1
+#+end_src
+
+- Recuerde remplazar <City> por el nombre de la ciudad que analice
+- Recuerde ajustar el tiempo para potenciar tomar datos nuevos
+- Recuerde que ~2>&1~ permite guardar en ~output.log~ tanto la salida
+  del programa como los errores en la ejecución.
+* Presentación de resultados
+Para la pressentación de resultados se utilizan las librerías de Python:
+- matplotlib
+- pandas
+
+Alternativamente como pudo estudiar en el Jupyter Notebook
+[[https://github.com/LeninGF/EPN-Lectures/blob/main/iccd332ArqComp-2024-A/Proyectos/CityWeather/CityTemperatureAnalysis.ipynb][CityTemperatureAnalysis.ipynb]], existen librerías alternativas que se
+pueden utilizar para presentar los resultados gráficos. En ambos
+casos, para que funcione los siguientes bloques de código, es
+necesario que realice la instalación de los paquetes usando ~mamba
+install <nombre-paquete>~
+** Muestra Aleatoria de datos
+Presentar una muestra de 10 valores aleatorios de los datos obtenidos.
+#+caption: Lectura de archivo csv
+#+begin_src python :session :results output exports both
+import os
+import pandas as pd
+# lectura del archivo csv obtenido
+df = pd.read_csv('/home/xchrisis/TokyoWeatherReport/clima-tokyo-hoy-etl.csv')
+# se imprime la estructura del dataframe en forma de filas x columnas
+print(df.shape)
+#+end_src
+
+#+RESULTS:
+: (42, 8)
+
+Resultado del número de filas y columnas leídos del archivo csv
+#+RESULTS:
+
+
+
+#+caption: DESPLIEGUE DE DATOS ALEATORIOS
+#+begin_src python :session :exports both :results value table :return table
+print(df.shape) 
+table1 = df.sample(10)
+table = [list(table1)]+[None]+table1.values.tolist()
+table
+#+end_src
+
+#+RESULTS:
+| fecha_hora          | temperatura | humedad | presion | clima  | estado_clima | ciudad | pais |
+|---------------------+-------------+---------+---------+--------+--------------+--------+------|
+| 2024-08-13 17:03:46 |       29.96 |    78.0 |    1008 | Clouds | few clouds   | Tokyo  | JP   |
+| 2024-08-13 17:28:29 |       31.26 |    74.0 |    1008 | Clouds | few clouds   | Tokyo  | JP   |
+| 2024-08-13 21:24:02 |       33.84 |    62.0 |    1007 | Rain   | light rain   | Tokyo  | JP   |
+| 2024-08-13 18:08:01 |        31.7 |    72.0 |    1008 | Clouds | few clouds   | Tokyo  | JP   |
+| 2024-08-13 21:16:03 |       33.87 |    62.0 |    1007 | Clouds | few clouds   | Tokyo  | JP   |
+| 2024-08-13 17:13:12 |       30.08 |    78.0 |    1008 | Clouds | few clouds   | Tokyo  | JP   |
+| 2024-08-13 20:32:02 |       34.28 |    64.0 |    1008 | Clouds | few clouds   | Tokyo  | JP   |
+| 2024-08-13 21:48:02 |       34.07 |    57.0 |    1007 | Rain   | light rain   | Tokyo  | JP   |
+| 2024-08-13 17:40:01 |       31.51 |    72.0 |    1008 | Clouds | few clouds   | Tokyo  | JP   |
+| 2024-08-13 22:00:02 |       34.26 |    57.0 |    1007 | Rain   | light rain   | Tokyo  | JP   |
+
+
+#+BEGIN_SRC python :results output
+import pandas as pd
+
+# Cargar el archivo CSV en un DataFrame
+df = pd.read_csv('/home/xchrisis/TokyoWeatherReport/clima-tokyo-hoy.csv')
+
+# Mostrar la estructura del DataFrame (número de filas y columnas)
+print(df.shape)
+
+# Mostrar las primeras filas del DataFrame para verificar los datos
+print(df.head())
+
+# Convertir la columna datetime a formato datetime y establecerla como índice
+df['fecha_hora'] = pd.to_datetime(df['fecha_hora'])
+df.set_index('fecha_hora', inplace=True)
+
+# Calcular la temperatura promedio
+temp_promedio = df['temperatura'].mean()
+print(f"Temperatura promedio: {temp_promedio} K")
+
+
+#+END_SRC
+
+#+RESULTS:
+#+begin_example
+(42, 8)
+            fecha_hora  temperatura  humedad  ...  estado_clima ciudad pais
+0  2024-08-13 17:03:46        29.96       78  ...    few clouds  Tokyo   JP
+1  2024-08-13 17:13:12        30.08       78  ...    few clouds  Tokyo   JP
+2  2024-08-13 17:24:16        31.14       74  ...    few clouds  Tokyo   JP
+3  2024-08-13 17:28:29        31.26       74  ...    few clouds  Tokyo   JP
+4  2024-08-13 17:30:02        31.26       74  ...    few clouds  Tokyo   JP
+
+[5 rows x 8 columns]
+Temperatura promedio: 32.6002380952381 K
+#+end_example
+
+
+** Gráfica Temperatura vs Tiempo
+Realizar una gráfica de la Temperatura en el tiempo.
+
+
+El siguiente cógido permite hacer la gráfica de la temperatura vs
+tiempo para Org 9.7+. Para saber que versión dispone puede ejecutar
+~M-x org-version~
+
+#+begin_src python :results file :exports both :session
+import matplotlib.pyplot as plt
+import matplotlib.dates as mdates
+# Define el tamaño de la figura de salida
+fig = plt.figure(figsize=(8,6))
+plt.plot(df['fecha_hora'], df['temperatura']) # dibuja las variables dt y temperatura
+# ajuste para presentacion de fechas en la imagen   
+plt.grid()
+# Titulo que obtiene el nombre de la ciudad del DataFrame
+plt.title(f'Main Temp vs Time in {next(iter(set(df.ciudad)))}')
+plt.xticks(rotation=40) # rotación de las etiquetas 40°
+fig.tight_layout()
+fname = './images/temperature.png'
+plt.savefig(fname)
+fname
+#+end_src
+
+#+caption: Gráfica Temperatura vs Tiempo
+#+RESULTS:
+[[file:./images/temperature.png]]
+
+Debido a que el archivo index.org se abre dentro de la carpeta
+/content/, y en cambio el servidor http de emacs se ejecuta desde la
+carpeta /public/ es necesario copiar el archivo a la ubicación
+equivalente en ~/public/images~
+
+#+begin_src shell
+cp -rfv ./images/* /home/xchrisis/PythonProjects/QuitoWeather/weather-site/public/images
+#+end_src
+
+#+RESULTS:
+
+
+**  Realice una gráfica de Humedad con respecto al tiempo
+
+#+begin_src python :results file :exports both :session
+
+import matplotlib.pyplot as plt
+import matplotlib.dates as mdates
+# Define el tamaño de la figura de salida
+fig = plt.figure(figsize=(8,6))
+plt.plot(df['fecha_hora'], df['humedad']) # dibuja las variables fecha y hora y humedad
+# ajuste para presentacion de fechas en la imagen   
+plt.grid()
+# Titulo que obtiene el nombre de la ciudad del DataFrame
+plt.title(f'Humedad vs Tiempo {next(iter(set(df.ciudad)))}')
+plt.xticks(rotation=40) # rotación de las etiquetas 40°
+fig.tight_layout()
+fname = './images/humedad.png'
+plt.savefig(fname)
+fname
+#+end_src
+
+#+caption: Gráfica Humedad  vs Tiempo 
+#+RESULTS:
+[[file:./images/humedad.png]]
+
+Debido a que el archivo index.org se abre dentro de la carpeta
+/content/, y en cambio el servidor http de emacs se ejecuta desde la
+carpeta /public/ es necesario copiar el archivo a la ubicación
+equivalente en ~/public/images~
+
+#+begin_src shell
+cp -rfv ./images/* /home/xchrisis\TokyoWeatherReport\weather-site\content\images
+#+end_src
+
+#+RESULTS:
+
+**  Realice una gráfica Presión respecto al tiempo
+
+#+begin_src python :results file :exports both :session
+
+import matplotlib.pyplot as plt
+import matplotlib.dates as mdates
+# Define el tamaño de la figura de salida
+fig = plt.figure(figsize=(8,6))
+plt.plot(df['fecha_hora'], df['presion']) # dibuja las variables fecha y hora y humedad
+# ajuste para presentacion de fechas en la imagen   
+plt.grid()
+# Titulo que obtiene el nombre de la ciudad del DataFrame
+plt.title(f'Presión vs Tiempo {next(iter(set(df.ciudad)))}')
+plt.xticks(rotation=40) # rotación de las etiquetas 40°
+fig.tight_layout()
+fname = './images/presion.png'
+plt.savefig(fname)
+fname
+#+end_src
+
+#+caption: Gráfica Humedad  vs Tiempo 
+#+RESULTS:
+[[file:./images/presion.png]]
+
+Debido a que el archivo index.org se abre dentro de la carpeta
+/content/, y en cambio el servidor http de emacs se ejecuta desde la
+carpeta /public/ es necesario copiar el archivo a la ubicación
+equivalente en ~/public/images~
+
+#+begin_src shell
+cp -rfv ./images/* /home/xchrisis\TokyoWeatherReport\weather-site\content\images
+#+end_src
+
+#+RESULTS:
+
+
+
+**  *Opcional* Presente alguna gráfica de interés.
+[[./images/jesus.gif]]
+
+* Referencias
+- [[https://emacs.stackexchange.com/questions/28715/get-pandas-data-frame-as-a-table-in-org-babel][presentar dataframe como tabla en emacs org]]
+- [[https://orgmode.org/worg/org-contrib/babel/languages/ob-doc-python.html][Python Source Code Blocks in Org Mode]]
+- [[https://systemcrafters.net/publishing-websites-with-org-mode/building-the-site/][Systems Crafters Construir tu sitio web con Modo Emacs Org]]
+- [[https://www.youtube.com/watch?v=AfkrzFodoNw][Vídeo Youtube Build Your Website with Org Mode]]
+* Footnotes
+
+[fn:1] Recuerde que su máquina ha de disponer de un entorno de
+anaconda/mamba denominado iccd332 en el cual se dispone del interprete
+de Python
